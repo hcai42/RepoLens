@@ -24,8 +24,9 @@ Required:
   --agent <agent>         claude | codex | spark | sparc | opencode | opencode/<model>
 
 Options:
-  --mode <mode>           audit (default) | feature | bugfix | discover | deploy | custom
+  --mode <mode>           audit (default) | feature | bugfix | discover | deploy | custom | opensource | content
   --change <statement>    Change impact analysis — propagates statement across all lenses (implies --mode custom)
+  --source <file>         Source material for content creation (PDF, text, markdown — agent reads directly)
   --focus <lens-id>       Run a single lens (e.g., "injection", "dead-code")
   --domain <domain-id>    Run all lenses in one domain (e.g., "security")
   --parallel              Run lenses in parallel (one agent process per lens)
@@ -51,6 +52,13 @@ Examples:
   repolens.sh --project ~/myapp --agent claude --change "Switching from REST to GraphQL"
   repolens.sh --project ~/myapp --agent claude --change "Adding WCAG 2.2 AA compliance" --domain frontend
   repolens.sh --project ~/myapp --agent claude --change "Dropping IE11 support" --parallel
+  repolens.sh --project ~/myapp --agent claude --mode opensource
+  repolens.sh --project ~/myapp --agent claude --mode opensource --focus license-compliance
+  repolens.sh --project ~/myapp --agent claude --mode content
+  repolens.sh --project ~/myapp --agent claude --mode content --source ~/docs/math-book.pdf
+  repolens.sh --project ~/myapp --agent claude --mode content --source ~/docs/curriculum.md --spec lesson-format.md
+  repolens.sh --project ~/myapp --agent claude --mode audit --source ~/docs/threat-report.pdf
+  repolens.sh --project ~/myapp --agent claude --mode content --focus topic-extraction --source ~/docs/textbook.pdf
 EOF
 
   # Dynamic section: list modes, domains, and lenses from config
@@ -80,13 +88,15 @@ EOF
   echo "  discover    Product discovery — brainstorming for product strategy"
   echo "  deploy      Server audit — inspects live server for operational issues"
   echo "  custom      Change impact — analyzes what needs adapting (requires --change)"
+  echo "  opensource  Open source readiness — audits if a repo can go public safely"
+  echo "  content     Content audit & creation — audits existing content, creates from --source"
 
   # Parse all domains in one jq call
   local domain_data
   domain_data="$(jq -r '.domains | sort_by(.order)[] | .id + "|" + .name + "|" + (.mode // "code") + "|" + (.lenses | join(","))' "$domains_file")"
 
-  local code_total=0 discover_total=0 deploy_total=0
-  local code_output="" discover_output="" deploy_output=""
+  local code_total=0 discover_total=0 deploy_total=0 opensource_total=0 content_total=0
+  local code_output="" discover_output="" deploy_output="" opensource_output="" content_output=""
 
   while IFS='|' read -r did dname dmode dlenses; do
     IFS=',' read -ra lens_arr <<< "$dlenses"
@@ -105,6 +115,12 @@ EOF
     elif [[ "$dmode" == "deploy" ]]; then
       deploy_total=$((deploy_total + lcount))
       deploy_output+="$section"$'\n'
+    elif [[ "$dmode" == "opensource" ]]; then
+      opensource_total=$((opensource_total + lcount))
+      opensource_output+="$section"$'\n'
+    elif [[ "$dmode" == "content" ]]; then
+      content_total=$((content_total + lcount))
+      content_output+="$section"$'\n'
     else
       code_total=$((code_total + lcount))
       code_output+="$section"$'\n'
@@ -121,6 +137,12 @@ EOF
   echo "Domains (deploy mode — ${deploy_total} lenses):"
   echo ""
   printf "%s" "$deploy_output"
+  echo "Domains (opensource mode — ${opensource_total} lenses):"
+  echo ""
+  printf "%s" "$opensource_output"
+  echo "Domains (content mode — ${content_total} lenses):"
+  echo ""
+  printf "%s" "$content_output"
 }
 
 # --- Argument parsing ---
@@ -135,6 +157,7 @@ RESUME_RUN_ID=""
 SPEC_FILE=""
 MAX_ISSUES=""
 CHANGE_STATEMENT=""
+SOURCE_FILE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -192,6 +215,11 @@ while [[ $# -gt 0 ]]; do
       CHANGE_STATEMENT="$2"
       shift 2
       ;;
+    --source)
+      [[ $# -ge 2 ]] || die "Option --source requires a file path argument."
+      SOURCE_FILE="$2"
+      shift 2
+      ;;
     -h|--help)
       usage
       exit 0
@@ -216,8 +244,8 @@ fi
 
 # --- Validate mode ---
 case "$MODE" in
-  audit|feature|bugfix|discover|deploy|custom) ;;
-  *) die "Invalid mode: $MODE (expected 'audit', 'feature', 'bugfix', 'discover', 'deploy', or 'custom')" ;;
+  audit|feature|bugfix|discover|deploy|custom|opensource|content) ;;
+  *) die "Invalid mode: $MODE (expected 'audit', 'feature', 'bugfix', 'discover', 'deploy', 'custom', 'opensource', or 'content')" ;;
 esac
 
 # --- Validate --change requirement ---
@@ -271,13 +299,20 @@ if [[ -n "$SPEC_FILE" ]]; then
   unset _spec_size
 fi
 
+# --- Validate source file ---
+if [[ -n "$SOURCE_FILE" ]]; then
+  [[ -f "$SOURCE_FILE" ]] || die "Source file not found: $SOURCE_FILE"
+  [[ -r "$SOURCE_FILE" ]] || die "Source file not readable: $SOURCE_FILE"
+  SOURCE_FILE="$(cd "$(dirname "$SOURCE_FILE")" && pwd)/$(basename "$SOURCE_FILE")"
+fi
+
 # --- Validate max-issues ---
 if [[ -n "$MAX_ISSUES" ]]; then
   [[ "$MAX_ISSUES" =~ ^[1-9][0-9]*$ ]] || die "--max-issues must be a positive integer, got: $MAX_ISSUES"
 fi
 
 # --- Derive DONE streak threshold ---
-if [[ -n "$MAX_ISSUES" ]] || [[ "$MODE" == "discover" ]] || [[ "$MODE" == "deploy" ]] || [[ "$MODE" == "custom" ]]; then
+if [[ -n "$MAX_ISSUES" ]] || [[ "$MODE" == "discover" ]] || [[ "$MODE" == "deploy" ]] || [[ "$MODE" == "custom" ]] || [[ "$MODE" == "opensource" ]] || [[ "$MODE" == "content" ]]; then
   DONE_STREAK_REQUIRED=1
 else
   DONE_STREAK_REQUIRED=3
@@ -337,7 +372,10 @@ log_info "Agent: $AGENT | Mode: $MODE | Parallel: $PARALLEL"
 [[ "$MODE" == "discover" ]] && log_info "Discover mode: single-pass brainstorming (DONE streak: 1)"
 [[ "$MODE" == "deploy" ]] && log_info "Deploy mode: single-pass server audit (DONE streak: 1)"
 [[ "$MODE" == "custom" ]] && log_info "Custom mode: change impact analysis (DONE streak: 1)"
+[[ "$MODE" == "opensource" ]] && log_info "Open source mode: readiness audit (DONE streak: 1)"
+[[ "$MODE" == "content" ]] && log_info "Content mode: content audit & creation (DONE streak: 1)"
 [[ -n "$CHANGE_STATEMENT" ]] && log_info "Change: $CHANGE_STATEMENT"
+[[ -n "$SOURCE_FILE" ]] && log_info "Source: $SOURCE_FILE"
 
 # --- Resolve lens list ---
 resolve_lenses() {
@@ -346,7 +384,7 @@ resolve_lenses() {
     # Single lens mode — find which domain it belongs to
     local found_domain=""
     found_domain="$(jq -r --arg lens "$FOCUS" --arg mode "$MODE" \
-      '.domains[] | (if $mode == "discover" then select(.mode == "discover") elif $mode == "deploy" then select(.mode == "deploy") else select(.mode != "discover" and .mode != "deploy") end) | select(.lenses[] == $lens) | .id' "$DOMAINS_FILE" | head -1)"
+      '.domains[] | (if $mode == "discover" then select(.mode == "discover") elif $mode == "deploy" then select(.mode == "deploy") elif $mode == "opensource" then select(.mode == "opensource") elif $mode == "content" then select(.mode == "content") else select(.mode != "discover" and .mode != "deploy" and .mode != "opensource" and .mode != "content") end) | select(.lenses[] == $lens) | .id' "$DOMAINS_FILE" | head -1)"
     [[ -n "$found_domain" ]] || die "Lens '$FOCUS' not found in domains.json (mode: $MODE)"
 
     local lens_file="$LENSES_DIR/$found_domain/$FOCUS.md"
@@ -360,7 +398,7 @@ resolve_lenses() {
     # Domain filter mode
     local domain_exists=""
     domain_exists="$(jq -r --arg d "$DOMAIN_FILTER" --arg mode "$MODE" \
-      '.domains[] | (if $mode == "discover" then select(.mode == "discover") elif $mode == "deploy" then select(.mode == "deploy") else select(.mode != "discover" and .mode != "deploy") end) | select(.id == $d) | .id' "$DOMAINS_FILE")"
+      '.domains[] | (if $mode == "discover" then select(.mode == "discover") elif $mode == "deploy" then select(.mode == "deploy") elif $mode == "opensource" then select(.mode == "opensource") elif $mode == "content" then select(.mode == "content") else select(.mode != "discover" and .mode != "deploy" and .mode != "opensource" and .mode != "content") end) | select(.id == $d) | .id' "$DOMAINS_FILE")"
     [[ -n "$domain_exists" ]] || die "Domain '$DOMAIN_FILTER' not found in domains.json (mode: $MODE)"
 
     jq -r --arg d "$DOMAIN_FILTER" \
@@ -370,7 +408,7 @@ resolve_lenses() {
 
   # All lenses — ordered by domain order
   jq -r --arg mode "$MODE" \
-    '.domains | sort_by(.order)[] | (if $mode == "discover" then select(.mode == "discover") elif $mode == "deploy" then select(.mode == "deploy") else select(.mode != "discover" and .mode != "deploy") end) | .id as $d | .lenses[] | $d + "/" + .' "$DOMAINS_FILE"
+    '.domains | sort_by(.order)[] | (if $mode == "discover" then select(.mode == "discover") elif $mode == "deploy" then select(.mode == "deploy") elif $mode == "opensource" then select(.mode == "opensource") elif $mode == "content" then select(.mode == "content") else select(.mode != "discover" and .mode != "deploy" and .mode != "opensource" and .mode != "content") end) | .id as $d | .lenses[] | $d + "/" + .' "$DOMAINS_FILE"
 }
 
 LENS_LIST=()
@@ -413,7 +451,9 @@ ensure_labels() {
     bugfix)   label_prefix="bugfix" ;;
     discover) label_prefix="discover" ;;
     deploy)   label_prefix="deploy" ;;
-    custom)   label_prefix="change" ;;
+    custom)      label_prefix="change" ;;
+    opensource)  label_prefix="opensource" ;;
+    content)     label_prefix="content" ;;
   esac
 
   for lens_entry in "${LENS_LIST[@]}"; do
@@ -489,7 +529,9 @@ run_lens() {
     bugfix)   label_prefix="bugfix" ;;
     discover) label_prefix="discover" ;;
     deploy)   label_prefix="deploy" ;;
-    custom)   label_prefix="change" ;;
+    custom)      label_prefix="change" ;;
+    opensource)  label_prefix="opensource" ;;
+    content)     label_prefix="content" ;;
   esac
   lens_label="${label_prefix}:${domain}/${lens_id}"
 
@@ -507,10 +549,11 @@ run_lens() {
   vars+="|REPO_NAME=${REPO_NAME}"
   vars+="|REPO_OWNER=${REPO_OWNER}"
   [[ -n "$CHANGE_STATEMENT" ]] && vars+="|CHANGE_STATEMENT=${CHANGE_STATEMENT}"
+  [[ -n "$SOURCE_FILE" ]] && vars+="|SOURCE_PATH=${SOURCE_FILE}"
 
   # Compose prompt
   local prompt
-  prompt="$(compose_prompt "$base_file" "$lens_file" "$vars" "$SPEC_FILE" "$MODE" "$MAX_ISSUES")"
+  prompt="$(compose_prompt "$base_file" "$lens_file" "$vars" "$SPEC_FILE" "$MODE" "$MAX_ISSUES" "$SOURCE_FILE")"
 
   # Create lens log directory
   local lens_log_dir="$LOG_BASE/$domain/$lens_id"

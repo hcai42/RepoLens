@@ -27,17 +27,18 @@ read_spec_file() {
   sed '1s/^\xEF\xBB\xBF//' "$file" | tr -d '\r'
 }
 
-# compose_prompt <base_template> <lens_file> <variables_string> [spec_file] [mode] [max_issues]
+# compose_prompt <base_template> <lens_file> <variables_string> [spec_file] [mode] [max_issues] [source_file]
 #   1. Reads the base template
 #   2. Reads the lens body
 #   3. Substitutes {{LENS_BODY}} in base template with lens body
 #   4. Substitutes all other {{VARIABLE}} placeholders using an associative array
 #   5. Builds and substitutes {{MAX_ISSUES_SECTION}}
-#   6. Builds and substitutes {{SPEC_SECTION}} LAST (prevents placeholder injection)
+#   6. Builds and substitutes {{SOURCE_SECTION}} (source material for content creation)
+#   7. Builds and substitutes {{SPEC_SECTION}} LAST (prevents placeholder injection)
 #   Variables string format: "KEY1=VALUE1|KEY2=VALUE2|..."
 compose_prompt() {
   local base_file="$1" lens_file="$2" vars_string="$3"
-  local spec_file="${4:-}" mode="${5:-audit}" max_issues="${6:-}"
+  local spec_file="${4:-}" mode="${5:-audit}" max_issues="${6:-}" source_file="${7:-}"
   local base_content lens_body spec_section prompt key value
 
   base_content="$(cat "$base_file")"
@@ -66,7 +67,51 @@ This limit overrides the instruction to find all issues. Prioritize your finding
 
   prompt="${prompt//\{\{MAX_ISSUES_SECTION\}\}/$max_issues_section}"
 
-  # Step 4 (LAST): Build and insert spec section
+  # Step 4: Build and insert source section
+  local source_section=""
+  if [[ -n "$source_file" && -f "$source_file" ]]; then
+    local source_guidance=""
+    case "$mode" in
+      content)
+        source_guidance="This is your PRIMARY source material for content creation. Read this file thoroughly. Extract all topics, concepts, chapters, sections, and teachable units. For each one, create a GitHub issue for new content that should be implemented in this project. Map each extracted topic to the project's existing content model and format."
+        ;;
+      audit)
+        source_guidance="Use this source material as an additional reference during your audit. It may contain specifications, standards, or context relevant to your analysis domain. Reference it where applicable."
+        ;;
+      feature)
+        source_guidance="Use this source material to identify features or capabilities that should exist in this project. Extract concrete requirements or ideas from the source and match them against what the codebase currently implements."
+        ;;
+      bugfix)
+        source_guidance="Use this source material as a reference for correct behavior. If the source describes how something should work, and the code does it differently, that's a bug."
+        ;;
+      discover)
+        source_guidance="Use this source material as inspiration for brainstorming. Extract themes, patterns, and ideas from it that could translate into product opportunities for this project."
+        ;;
+      deploy)
+        source_guidance="Use this source material as a reference for expected server configuration or operational standards. Compare the live system state against what this document describes."
+        ;;
+      opensource)
+        source_guidance="Use this source material as additional context for your open source readiness assessment. It may contain policies, requirements, or standards relevant to the public release evaluation."
+        ;;
+      custom)
+        source_guidance="Use this source material as additional context for understanding the change and its intended scope. Combine the change statement with this source to identify comprehensive impact."
+        ;;
+    esac
+
+    source_section="## Source Material
+
+You have been provided source material for analysis. The agent should read this file directly.
+
+**Source file path:** \`${source_file}\`
+
+${source_guidance}
+
+Read the source file using your file reading capabilities (cat, head, or equivalent). Analyze its structure and contents before proceeding with your lens-specific work."
+  fi
+
+  prompt="${prompt//\{\{SOURCE_SECTION\}\}/$source_section}"
+
+  # Step 5 (LAST): Build and insert spec section
   # Done last so spec content is never subject to variable substitution
   spec_section=""
   if [[ -n "$spec_file" && -f "$spec_file" ]]; then
@@ -92,6 +137,12 @@ This limit overrides the instruction to find all issues. Prioritize your finding
           ;;
         custom)
           spec_guidance="Use this specification as additional context for understanding the change and its intended scope. Combine the change statement with this specification to identify where the codebase needs adaptation. The change statement defines WHAT is changing; this specification provides the broader context of WHY and the full picture of intended behavior."
+          ;;
+        opensource)
+          spec_guidance="Use this specification as additional context for your open source readiness assessment. It may define compliance requirements, release criteria, or organizational policies relevant to the public release evaluation."
+          ;;
+        content)
+          spec_guidance="Use this specification to understand content quality standards for this project. It defines what good content looks like — formatting, structure, metadata requirements, quality criteria. Apply these standards when auditing existing content and when creating issues for new content from source material."
           ;;
       esac
 

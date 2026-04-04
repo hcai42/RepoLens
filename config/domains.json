@@ -145,6 +145,20 @@
       "order": 24,
       "mode": "deploy",
       "lenses": ["service-health", "application-health", "tls-certificates", "dns-resolution", "time-synchronization", "network-security", "load-balancing", "reverse-proxy", "disk-storage", "memory-cpu", "resource-limits", "container-health", "database-health", "queue-messaging", "secrets-credentials", "ssh-access-control", "system-hardening", "log-analysis", "logging-pipeline", "monitoring-health", "backup-verification", "disaster-recovery", "config-drift", "dependency-health", "update-patching", "cronjob-scheduler"]
+    },
+    {
+      "id": "open-source-readiness",
+      "name": "Open Source Readiness",
+      "order": 25,
+      "mode": "opensource",
+      "lenses": ["secret-leaks", "license-compliance", "dependency-licensing", "internal-exposure", "git-history-secrets", "community-readiness", "documentation-gaps", "monetization-exposure", "pii-data-leakage", "build-reproducibility", "security-posture", "code-attribution", "trademark-branding"]
+    },
+    {
+      "id": "content-quality",
+      "name": "Content Quality",
+      "order": 26,
+      "mode": "content",
+      "lenses": ["content-inventory", "metadata-completeness", "content-staleness", "content-accessibility", "content-linking", "content-duplication", "content-completeness", "content-consistency", "code-examples", "content-pii", "multimedia-quality", "content-versioning", "audience-targeting", "content-localization", "topic-extraction", "content-planning", "exercise-design"]
     }
   ]
 }
