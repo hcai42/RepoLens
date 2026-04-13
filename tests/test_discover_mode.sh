@@ -3,6 +3,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=../lib/template.sh
 source "$SCRIPT_DIR/lib/template.sh"
 
 PASS=0
@@ -150,9 +151,9 @@ mode_val="$(jq -r '.domains[] | select(.id == "discovery") | .mode' "$DOMAINS_FI
 assert_eq "discovery domain mode is 'discover'" "discover" "$mode_val"
 
 echo ""
-echo "Test 14: No other domain has mode field"
-mode_domains="$(jq -r '.domains[] | select(.id != "discovery") | select(.mode != null) | .id' "$DOMAINS_FILE")"
-assert_eq "no other domain has mode field" "" "$mode_domains"
+echo "Test 14: Non-modal domains have no mode field"
+mode_domains="$(jq -r '.domains[] | select(.mode != null) | select(.mode != "discover" and .mode != "deploy" and .mode != "opensource" and .mode != "content") | .id' "$DOMAINS_FILE")"
+assert_eq "no non-modal domain has mode field" "" "$mode_domains"
 
 echo ""
 echo "Test 15: Discovery color exists"
