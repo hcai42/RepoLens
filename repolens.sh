@@ -589,6 +589,36 @@ confirm_deploy_authorization() {
   esac
 }
 
+# --- Autonomous mode gate (claude-only) ---
+confirm_autonomous_mode() {
+  [[ "$AGENT" == "claude" ]] || return 0
+
+  if $AUTO_YES; then
+    return 0
+  fi
+
+  if [[ ! -t 0 ]]; then
+    die "Running non-interactively without --yes flag. Use --yes to skip confirmation."
+  fi
+
+  echo ""
+  echo "=== Autonomous Mode ==="
+  echo ""
+  echo "RepoLens passes --dangerously-skip-permissions to the Claude CLI."
+  echo "Despite its name, this flag ONLY skips interactive permission prompts"
+  echo "(file reads, shell commands). It does NOT disable safety filters,"
+  echo "content guardrails, or ethical guidelines."
+  echo ""
+  echo "Safety is enforced through prompt instructions that restrict agents"
+  echo "to read-only code analysis and 'gh issue create' commands."
+  echo ""
+  read -rp "I understand what --dangerously-skip-permissions does [y/N] " answer
+  case "$answer" in
+    [yY]|[yY][eE][sS]) return 0 ;;
+    *) echo "Aborted."; exit 0 ;;
+  esac
+}
+
 # --- Dry-run output ---
 if $DRY_RUN; then
   echo ""
@@ -607,6 +637,7 @@ if $DRY_RUN; then
   exit 0
 fi
 
+confirm_autonomous_mode
 confirm_deploy_authorization
 confirm_run
 

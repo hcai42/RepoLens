@@ -175,15 +175,16 @@ Usage: repolens.sh --project <path|url> --agent <agent> [OPTIONS]
 1. Validates target repo (or server for `deploy` mode), agent CLI, and `gh` auth
 2. Resolves lens list (all, `--domain`, or `--focus`)
 3. If `--dry-run`: prints mode, agent, project path, and the full lens list, then exits — no agents run and no prompts are shown
-4. For `deploy` mode: prompts for explicit authorization confirmation (`I confirm I am authorized to audit this server [y/N]`). Displays legal references (§202a StGB, CFAA, EU Directive 2013/40/EU). `--yes` bypasses this prompt
-5. Shows confirmation prompt (target repo, mode, lens count, estimated cost) — requires `y` to proceed, or use `--yes` to skip. If `--max-cost` is set and the estimate exceeds it, a warning is displayed
-6. Ensures GitHub labels exist (`audit:<domain>/<lens>`)
-7. For each lens:
+4. For `--agent claude`: prompts for acknowledgment that `--dangerously-skip-permissions` only skips interactive permission prompts, not safety filters. `--yes` bypasses this prompt
+5. For `deploy` mode: prompts for explicit authorization confirmation (`I confirm I am authorized to audit this server [y/N]`). Displays legal references (§202a StGB, CFAA, EU Directive 2013/40/EU). `--yes` bypasses this prompt
+6. Shows confirmation prompt (target repo, mode, lens count, estimated cost) — requires `y` to proceed, or use `--yes` to skip. If `--max-cost` is set and the estimate exceeds it, a warning is displayed
+7. Ensures GitHub labels exist (`audit:<domain>/<lens>`)
+8. For each lens:
    - Composes prompt from base template + lens expert focus
    - Runs agent in target repo directory
    - Agent reads code, finds issues, creates GitHub issues via `gh`
    - Loops until DONE detected (3× streak for audit/feature/bugfix, 1× for other modes)
-8. Generates `logs/<run-id>/summary.json`
+9. Generates `logs/<run-id>/summary.json`
 
 For a deeper look at the methodology — how lenses are composed, how agents iterate, and how streak detection works — see [METHODOLOGY.md](METHODOLOGY.md).
 
@@ -259,7 +260,9 @@ RepoLens enforces read-only operation through prompt instructions, but **respons
 
 ### About `--dangerously-skip-permissions`
 
-RepoLens passes `--dangerously-skip-permissions` to the Claude agent CLI. This flag is required for autonomous operation — agents need to create GitHub issues via `gh` and read project files without interactive permission prompts. Safety is enforced through detailed prompt instructions (not the CLI permissions system), which restrict agents to read-only analysis and `gh issue create` commands.
+RepoLens passes `--dangerously-skip-permissions` to the Claude agent CLI. This flag is required for autonomous operation — agents need to create GitHub issues via `gh` and read project files without interactive permission prompts. Despite its name, the flag does **not** disable safety filters, content guardrails, or ethical guidelines. Safety is enforced through detailed prompt instructions (not the CLI permissions system), which restrict agents to read-only analysis and `gh issue create` commands.
+
+When using `--agent claude`, RepoLens displays an explanation of the flag and asks for acknowledgment before running any agents. Use `--yes` to skip this prompt in CI/automation.
 
 ## Support
 
