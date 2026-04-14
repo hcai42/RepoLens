@@ -36,9 +36,11 @@ _This is the first public release. Previous development was private._
 
 - Apache 2.0 license
 - Contributor Covenant 2.1 Code of Conduct
-- Comprehensive README with CLI reference
+- Comprehensive README with CLI reference and shields.io badges (license, version, stars)
 - AUTHORS.md with project credits and contributor listing
 - CONTRIBUTING.md with lens contribution workflow, domain taxonomy, and DCO sign-off guide
+- GitHub issue template for community lens proposals
+- Pull request template with lens checklist and DCO sign-off reminder
 - Test suite with 17 test suites
 - Modular library architecture (`lib/`)
 

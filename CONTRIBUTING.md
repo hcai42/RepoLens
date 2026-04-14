@@ -15,6 +15,7 @@ Thank you for your interest in contributing to RepoLens — an open-source, mult
 - [Running Tests](#running-tests)
 - [Reporting Bugs](#reporting-bugs)
 - [Suggesting Features](#suggesting-features)
+- [Proposing a Lens](#proposing-a-lens)
 - [Prerequisites](#prerequisites)
 - [Code of Conduct](#code-of-conduct)
 - [License](#license)
@@ -228,6 +229,10 @@ Open a [GitHub issue](https://github.com/TheMorpheus407/RepoLens/issues) with:
 ## Suggesting Features
 
 Open an issue with the `enhancement` label. Describe the use case and why it would benefit the project.
+
+## Proposing a Lens
+
+Have an idea for a new analysis lens but don't want to implement it yourself? Open an issue using the **Lens Request** template. Describe what the lens should detect, which domain it belongs to, and give a few example findings. The community or maintainers can pick it up from there.
 
 ## Prerequisites
 
