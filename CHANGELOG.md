@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - GitHub Actions CI workflow: ShellCheck linting and test suite (`make check`) run on every push to `master` and pull request
 - CI status badge in README
 - `.github/CODEOWNERS` for automatic reviewer assignment on pull requests
+- `.github/FUNDING.yml` to activate the GitHub "Sponsor" button linking to GitHub Sponsors and Patreon
 
 ## [0.1.0] - 2026-04-14
 
