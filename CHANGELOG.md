@@ -15,7 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
   - 26 deployment/server audit lenses
   - 13 open-source readiness lenses
   - 17 content quality lenses
-- Eight operational modes: audit, feature, bugfix, discover, deploy, oss-readiness, content-quality, all
+- Eight operational modes: audit, feature, bugfix, discover, deploy, custom, opensource, content
 - Agent-agnostic design: supports claude, codex, spark/sparc, opencode
 - Parallel execution with configurable concurrency (`--parallel`)
 - DONE x3 streak detection for autonomous agent completion
@@ -25,9 +25,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Automatic GitHub issue creation for findings
 - Domain and lens filtering (`--domain`, `--lens`)
 - Maximum issue cap (`--max-issues`)
+- `--hosted` Docker Compose integration for DAST scanning
 - Spec file support (`--spec`) for focused analysis
 - Prompt composition via template engine
 - Structured logging with severity levels
+
+_This is the first public release. Previous development was private._
 
 ### Infrastructure
 

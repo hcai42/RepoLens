@@ -237,6 +237,10 @@ make check
 
 This discovers and runs all `tests/test_*.sh` scripts, reports per-suite results, and exits non-zero if any suite fails.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a detailed history of changes.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for how to report bugs, suggest features, submit code, and add new lenses.
