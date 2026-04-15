@@ -35,9 +35,16 @@ RepoLens is a standalone multi-lens code audit tool. It runs 280 expert analysis
 - Config is JSON parsed with `jq`
 - Logs are structured: `[LEVEL] [timestamp] message`
 
+## Tests
+
+- **No real models in tests.** Tests MUST NEVER invoke real AI models (claude, codex, opencode, etc.). No exceptions. Tests that call `repolens.sh --agent <model>` without `--dry-run` burn API credits, hang for minutes per invocation, leak orphan processes, and wedge AutoDev's quality gate. If a test needs to exercise repolens.sh behavior, use `--dry-run` or mock the agent call.
+- Test suite runs via `bash tests/run-all.sh` or `make check`. Both share a recursion guard (`REPOLENS_MAKE_CHECK` env var) to prevent infinite nesting when tests validate the Makefile target.
+- All tests must complete in seconds, not minutes. The full suite (32 files) runs in ~7 seconds. If a new test takes more than 10 seconds, something is wrong.
+
 ## Do NOT
 
 - Add LLM/AI logic into the scoring or assessment — this tool creates issues, it doesn't score code
 - Hardcode repository-specific logic — this tool works on ANY git repo or server
 - Modify the DONE detection protocol without understanding the streak mechanism
 - Remove the `--dangerously-skip-permissions` flag from claude invocation — it's intentional for autonomous operation
+- Write tests that call real AI models — use `--dry-run` or mocks instead (see Tests section above)
