@@ -1,0 +1,3 @@
+# We intentionally use set -uo pipefail without set -e
+# Callers handle errors explicitly
+disable=SC2317

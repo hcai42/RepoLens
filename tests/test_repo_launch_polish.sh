@@ -520,6 +520,49 @@ if [[ -f "$DCO_WORKFLOW" ]]; then
   assert_contains "workflow checks Signed-off-by trailer" "Signed-off-by:" "$dco_wf_content"
 fi
 
+echo ""
+echo "Test 52: .editorconfig exists at repo root"
+EDITORCONFIG="$SCRIPT_DIR/.editorconfig"
+TOTAL=$((TOTAL + 1))
+if [[ -f "$EDITORCONFIG" ]]; then
+  PASS=$((PASS + 1))
+  echo "  PASS: .editorconfig present"
+else
+  FAIL=$((FAIL + 1))
+  echo "  FAIL: .editorconfig missing at repo root"
+fi
+
+echo ""
+echo "Test 53: .editorconfig declares project-wide conventions"
+if [[ -f "$EDITORCONFIG" ]]; then
+  ec_content="$(cat "$EDITORCONFIG")"
+  assert_contains "root = true" "root = true" "$ec_content"
+  assert_contains "indent_style = space" "indent_style = space" "$ec_content"
+  assert_contains "indent_size = 2" "indent_size = 2" "$ec_content"
+  assert_contains "end_of_line = lf" "end_of_line = lf" "$ec_content"
+  assert_contains "charset = utf-8" "charset = utf-8" "$ec_content"
+  assert_contains "Makefile override preserves tabs" "indent_style = tab" "$ec_content"
+fi
+
+echo ""
+echo "Test 54: .shellcheckrc exists at repo root"
+SHELLCHECKRC="$SCRIPT_DIR/.shellcheckrc"
+TOTAL=$((TOTAL + 1))
+if [[ -f "$SHELLCHECKRC" ]]; then
+  PASS=$((PASS + 1))
+  echo "  PASS: .shellcheckrc present"
+else
+  FAIL=$((FAIL + 1))
+  echo "  FAIL: .shellcheckrc missing at repo root"
+fi
+
+echo ""
+echo "Test 55: .shellcheckrc contains at least one disable directive"
+if [[ -f "$SHELLCHECKRC" ]]; then
+  sc_content="$(cat "$SHELLCHECKRC")"
+  assert_matches "has disable= directive" "^disable=SC[0-9]+" "$sc_content"
+fi
+
 # --- Summary ---
 echo ""
 echo "================================"
