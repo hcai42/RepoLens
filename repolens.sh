@@ -15,6 +15,17 @@
 
 set -uo pipefail
 
+# Bash 4.0+ is required: associative arrays (declare -A), read -ra into arrays,
+# and other features used throughout repolens.sh and lib/. macOS ships bash 3.2
+# by default (GPLv3 avoidance), so this check fires loudly with a fix hint
+# instead of letting a cryptic syntax error surface deeper in the script.
+if (( BASH_VERSINFO[0] < 4 )); then
+  echo "ERROR: RepoLens requires bash 4.0 or newer. Detected: ${BASH_VERSION}" >&2
+  echo "  macOS: brew install bash (then run with /usr/local/bin/bash or /opt/homebrew/bin/bash)" >&2
+  echo "  Linux: upgrade via your package manager (apt install bash, etc.)" >&2
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # --- Source libraries ---
@@ -398,6 +409,7 @@ if [[ -n "$SPEC_FILE" ]]; then
   _spec_size="$(wc -c < "$SPEC_FILE")"
   [[ "$_spec_size" -le 102400 ]] || die "Spec file too large (${_spec_size} bytes, max 100KB): $SPEC_FILE"
   # Reject binary files (NUL byte check via tr/cmp)
+  # shellcheck disable=SC2094  # cmp reads stdin and compares to the file — it never writes.
   if ! tr -d '\0' < "$SPEC_FILE" | cmp -s - "$SPEC_FILE"; then
     die "Spec file appears to be binary: $SPEC_FILE — only text files are supported."
   fi

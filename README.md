@@ -16,6 +16,7 @@
 
 | Tool | Required | Purpose | Install |
 |------|----------|---------|---------|
+| `bash` | Yes (4.0+) | Shell runtime — associative arrays, `read -ra`, other 4.x features are used throughout | Linux distributions ship 4.0+ already. macOS ships 3.2 by default (GPLv3 avoidance) — upgrade via `brew install bash`. RepoLens aborts at startup on older bash with an upgrade hint. |
 | `git` | Yes | Repo validation, cloning | OS package manager (`apt install git`, `brew install git`, `nix-env -i git`) |
 | `jq` | Yes | JSON config parsing | OS package manager (`apt install jq`, `brew install jq`, `nix-env -i jq`) |
 | `gh` | Yes (unless `--local`) | Create issues, labels, query repos | [cli.github.com](https://cli.github.com) — run `gh auth login` after install |
