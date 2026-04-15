@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2025 Bootstrap Academy
+# Copyright 2025-2026 Bootstrap Academy
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -259,10 +259,10 @@ if [[ -f "$README" ]]; then
   readme_content="$(cat "$README")"
   # The badge links to LICENSE — verify the file it points to exists
   TOTAL=$((TOTAL + 1))
-  if echo "$readme_content" | grep -qP '\]\(LICENSE\)' && [[ -f "$SCRIPT_DIR/LICENSE" ]]; then
+  if grep -qP '\]\(LICENSE\)' <<< "$readme_content" && [[ -f "$SCRIPT_DIR/LICENSE" ]]; then
     PASS=$((PASS + 1))
     echo "  PASS: README links to LICENSE and file exists"
-  elif ! echo "$readme_content" | grep -qP '\]\(LICENSE\)'; then
+  elif ! grep -qP '\]\(LICENSE\)' <<< "$readme_content"; then
     FAIL=$((FAIL + 1))
     echo "  FAIL: README does not contain link to LICENSE"
   else
@@ -359,7 +359,7 @@ assert_contains "contains APPENDIX" "APPENDIX" "$license_content"
 
 echo ""
 echo "Test 33: NOTICE contains complete copyright line"
-assert_contains "complete copyright line" "Copyright 2025 Bootstrap Academy" "$notice_content"
+assert_contains "complete copyright line" "Copyright 2025-2026 Bootstrap Academy" "$notice_content"
 
 echo ""
 echo "Test 34: NOTICE is concise (under 10 lines per Apache convention)"

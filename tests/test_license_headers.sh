@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2025 Bootstrap Academy
+# Copyright 2025-2026 Bootstrap Academy
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -367,7 +367,7 @@ TOTAL=$((TOTAL + 1))
 wrong_position=()
 for f in "${sh_files[@]}"; do
   line2="$(sed -n '2p' "$f")"
-  if [[ "$line2" != "# Copyright 2025 Bootstrap Academy" ]]; then
+  if [[ "$line2" != "# Copyright 2025-2026 Bootstrap Academy" ]]; then
     wrong_position+=("$(basename "$f")")
   fi
 done
@@ -453,7 +453,7 @@ echo "Test 15: Header copyright line matches NOTICE file content"
 TOTAL=$((TOTAL + 1))
 notice_copyright=""
 if [[ -f "$SCRIPT_DIR/NOTICE" ]]; then
-  notice_copyright="$(grep -oP 'Copyright \d+ .+' "$SCRIPT_DIR/NOTICE" | head -1)"
+  notice_copyright="$(grep -oP 'Copyright [\d-]+ .+' "$SCRIPT_DIR/NOTICE" | head -1)"
 fi
 if [[ -z "$notice_copyright" ]]; then
   FAIL=$((FAIL + 1))
@@ -461,7 +461,7 @@ if [[ -z "$notice_copyright" ]]; then
 else
   mismatch=()
   for f in "${sh_files[@]}"; do
-    header_copyright="$(head -5 "$f" | grep -oP 'Copyright \d+ .+' | head -1)"
+    header_copyright="$(head -5 "$f" | grep -oP 'Copyright [\d-]+ .+' | head -1)"
     if [[ "$header_copyright" != "$notice_copyright" ]]; then
       mismatch+=("$(basename "$f")")
     fi
@@ -646,7 +646,7 @@ echo "Test 22: Header text matches the canonical Apache 2.0 boilerplate"
 TOTAL=$((TOTAL + 1))
 # The canonical 13-line Apache 2.0 boilerplate (as a bash comment block)
 read -r -d '' EXPECTED_HEADER << 'ENDOFHEADER' || true
-# Copyright 2025 Bootstrap Academy
+# Copyright 2025-2026 Bootstrap Academy
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
