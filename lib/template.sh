@@ -36,9 +36,11 @@ read_body() {
 
 # read_spec_file <file>
 #   Reads a spec file, strips BOM and CRLF. Returns content on stdout.
+#   Uses $'...' ANSI-C quoting for BOM bytes — portable across GNU and BSD sed.
 read_spec_file() {
-  local file="$1"
-  sed '1s/^\xEF\xBB\xBF//' "$file" | tr -d '\r'
+  local file="$1" bom
+  bom=$'\xEF\xBB\xBF'
+  sed "1s/^${bom}//" "$file" | tr -d '\r'
 }
 
 # compose_prompt <base_template> <lens_file> <variables_string> [spec_file] [mode] [max_issues] [source_file] [hosted] [local_mode] [local_output_dir]
