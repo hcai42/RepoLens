@@ -81,3 +81,52 @@ count_dry_run_issues() {
   [[ -d "$dir" ]] || { echo 0; return 0; }
   find "$dir" -maxdepth 1 -name '*.md' -type f 2>/dev/null | wc -l
 }
+
+# Rate-limit / quota / auth-failure signatures emitted by agent CLIs
+# (claude, codex, spark, opencode). Case-insensitive ERE patterns.
+# Extend this list when new agent error strings surface. False positives
+# matter less than false negatives here — a false abort costs one run;
+# a false negative costs a night of wasted iterations.
+_REPOLENS_RATE_LIMIT_PATTERNS=(
+  "you('|\xe2\x80\x99)?ve hit your usage limit"
+  "usage limit"
+  "rate[- ]?limit(ed|ing|s)?"
+  "try again (at|in)"
+  "quota exceeded"
+  "401 unauthorized"
+  "403 forbidden"
+)
+
+# detect_agent_rate_limit <output_file>
+#   Returns 0 if any known rate-limit / quota / auth-failure signature is
+#   found in the file, 1 otherwise. Matching is case-insensitive and
+#   applied to ANSI-stripped output (so colored terminal output still
+#   matches).
+#
+#   On match, prints "PATTERN|SNIPPET" to stdout where PATTERN is the
+#   signature that matched and SNIPPET is the first 200 characters of
+#   the matching line. Callers can split on the first "|" to extract
+#   both fields for logging.
+#
+#   Intentionally avoids matching the orchestrator's own `gh` 401 errors
+#   because `run_agent`'s stdout/stderr is captured separately — only the
+#   agent subprocess writes to <output_file>.
+detect_agent_rate_limit() {
+  local file="$1"
+  [[ -s "$file" ]] || return 1
+
+  local stripped pat line
+  stripped="$(strip_ansi < "$file" 2>/dev/null)"
+  [[ -n "$stripped" ]] || return 1
+
+  for pat in "${_REPOLENS_RATE_LIMIT_PATTERNS[@]}"; do
+    line="$(printf '%s\n' "$stripped" | grep -iE -m1 "$pat" 2>/dev/null || true)"
+    if [[ -n "$line" ]]; then
+      # Trim leading whitespace for a cleaner snippet
+      line="${line#"${line%%[![:space:]]*}"}"
+      printf '%s|%s\n' "$pat" "${line:0:200}"
+      return 0
+    fi
+  done
+  return 1
+}

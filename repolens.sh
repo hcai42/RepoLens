@@ -1006,6 +1006,22 @@ run_lens() {
       log_warn "[$domain/$lens_id] Agent returned non-zero on iteration $iteration. Continuing."
     fi
 
+    # Detect rate-limit / quota / auth-failure signatures in agent output.
+    # A match means retrying will not help (the agent is gated upstream) —
+    # abort the whole run instead of burning MAX_ITERATIONS_PER_LENS * lenses
+    # worth of no-op invocations. Checked BEFORE check_done so a rate-limited
+    # agent cannot accidentally trip the DONE path.
+    local rl_hit rl_sig rl_snip
+    rl_hit="$(detect_agent_rate_limit "$output_file" || true)"
+    if [[ -n "$rl_hit" ]]; then
+      rl_sig="${rl_hit%%|*}"
+      rl_snip="${rl_hit#*|}"
+      log_error "[$domain/$lens_id] Agent rate-limited / quota exceeded. Aborting run. Matched: $rl_sig. Snippet: $rl_snip"
+      : > "$LOG_BASE/.rate-limit-abort"
+      exit_status="rate-limited"
+      break
+    fi
+
     # Count issues created by this lens
     local current_issue_count
     if $LOCAL_MODE; then
@@ -1055,9 +1071,12 @@ run_lens() {
   # Update global counter
   GLOBAL_ISSUES_CREATED=$((GLOBAL_ISSUES_CREATED + lens_issues))
 
-  # Record result
+  # Record result. Rate-limited lenses are recorded but NOT marked completed,
+  # so --resume will re-run them on the next invocation.
   record_lens "$SUMMARY_FILE" "$domain" "$lens_id" "$iteration" "$exit_status" "$lens_issues"
-  mark_lens_completed "$lens_entry"
+  if [[ "$exit_status" != "rate-limited" ]]; then
+    mark_lens_completed "$lens_entry"
+  fi
 
   log_info "[$domain/$lens_id] Finished after $iteration iteration(s), $lens_issues issue(s)"
 }
@@ -1067,17 +1086,53 @@ if $PARALLEL; then
   log_info "Running in parallel mode (max $MAX_PARALLEL concurrent)"
   init_parallel "$LOG_BASE/.semaphore" "$MAX_PARALLEL"
 
+  parallel_count=0
   for lens_entry in "${LENS_LIST[@]}"; do
+    # Skip spawning new lenses if a sibling tripped the rate-limit detector.
+    # In-flight children continue; the summary still records skipped lenses so
+    # --resume picks them up.
+    if [[ -f "$LOG_BASE/.rate-limit-abort" ]]; then
+      log_warn "Rate-limit abort detected. Skipping remaining lenses."
+      for skip_entry in "${LENS_LIST[@]:$parallel_count}"; do
+        skip_domain="${skip_entry%%/*}"
+        skip_lens="${skip_entry#*/}"
+        if ! is_lens_completed "$skip_entry"; then
+          record_lens "$SUMMARY_FILE" "$skip_domain" "$skip_lens" 0 "skipped" 0
+        fi
+      done
+      set_stop_reason "$SUMMARY_FILE" "rate-limited"
+      break
+    fi
+    parallel_count=$((parallel_count + 1))
     spawn_lens "${lens_entry#*/}" run_lens "$lens_entry"
   done
 
   if ! wait_all; then
     log_warn "Some lenses exited with errors."
   fi
+
+  # Children may have tripped the abort after the spawn loop finished.
+  # Make sure the stop_reason is recorded even then.
+  if [[ -f "$LOG_BASE/.rate-limit-abort" ]]; then
+    set_stop_reason "$SUMMARY_FILE" "rate-limited"
+  fi
 else
   log_info "Running in sequential mode"
   local_count=0
   for lens_entry in "${LENS_LIST[@]}"; do
+    # Check for rate-limit abort from a previous lens in this run.
+    if [[ -f "$LOG_BASE/.rate-limit-abort" ]]; then
+      log_warn "Rate-limit abort detected. Skipping remaining lenses."
+      for skip_entry in "${LENS_LIST[@]:$local_count}"; do
+        skip_domain="${skip_entry%%/*}"
+        skip_lens="${skip_entry#*/}"
+        if ! is_lens_completed "$skip_entry"; then
+          record_lens "$SUMMARY_FILE" "$skip_domain" "$skip_lens" 0 "skipped" 0
+        fi
+      done
+      set_stop_reason "$SUMMARY_FILE" "rate-limited"
+      break
+    fi
     # Check global issue budget before starting next lens
     if [[ -n "$MAX_ISSUES" && "$GLOBAL_ISSUES_CREATED" -ge "$MAX_ISSUES" ]]; then
       log_info "Global issue budget exhausted ($GLOBAL_ISSUES_CREATED/$MAX_ISSUES). Skipping remaining lenses."
@@ -1110,3 +1165,10 @@ log_info "=============================="
 echo ""
 echo "=== RepoLens Run Summary ==="
 jq '.' "$SUMMARY_FILE"
+
+# If the rate-limit detector fired, exit non-zero so CI / operators see the
+# run as failed. The summary is already finalized with stopped_reason and
+# per-lens statuses, so --resume picks up seamlessly.
+if [[ -f "$LOG_BASE/.rate-limit-abort" ]]; then
+  exit 1
+fi
