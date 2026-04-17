@@ -87,8 +87,12 @@ spawn_lens() {
   sem_token_create "$lens_id"
 
   (
+    # EXIT trap fires on every bash-trappable exit path (clean return,
+    # exit N, errexit, SIGTERM, SIGHUP, SIGINT) so the token is always
+    # released. SIGKILL / OOM still leak — see issue #117 for the
+    # startup-time stale-token GC that handles that case.
+    trap 'sem_token_remove "$lens_id"' EXIT
     "$callback" "$@"
-    sem_token_remove "$lens_id"
   ) &
 
   _REPOLENS_CHILD_PIDS+=($!)
